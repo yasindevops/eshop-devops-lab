@@ -17,19 +17,21 @@ spec:
         # Burası Nexus'taki imaj adresin olacak
         image: nexus-server.local:8083/my-first-app:latest
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         env:
-        # 1. Çökmeye sebep olan boş URL'i dolduruyoruz
+        # 1. Mevcut değişkenlerin
         - name: CatalogBaseUrl
           value: "http://web-service" 
 
-        # 2. .NET'in Development modunda çalışmasını sağlıyoruz (hata detaylarını görmek için)
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
 
-        # 3. İleride alacağınız veritabanı hatasını önlemek için (Şimdilik boş bir SQL adresi)
+        # 2. YENİ EKLEYECEĞİNİZ: Bu hata için kritik olan değişken
+        - name: PATH_BASE
+          value: "/" 
+
         - name: ConnectionStrings__CatalogConnection
-          value: "Server=sql-server-ip;Database=CatalogDB;User Id=sa;Password=admin;"     
+          value: "Server=sql-server-ip;Database=CatalogDB;User Id=sa;Password=admin;"
 ---
 apiVersion: v1
 kind: Service
@@ -42,5 +44,5 @@ spec:
   ports:
     - protocol: TCP
       port: 80         # Servis içi port
-      targetPort: 80   # Konteyner portu
+      targetPort: 8080   # Konteyner portu
       nodePort: 30080  # Dışarıdan erişeceğin sabit port (30000-32767 arası)
