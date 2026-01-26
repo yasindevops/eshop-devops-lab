@@ -39,16 +39,15 @@ pipeline {
                     sh "docker push ${REGISTRY}/${IMG_NAME}:latest"
                 }
             }
-        }
-        stage('Deploy to K3s') {
-            steps {
-                withCredentials([file(credentialsId: "${KUBE_CRED}", variable: 'KUBECONFIG')]) {
-                    sh """
+    stage('Deploy to K3s') {
+        steps {
+            withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+                sh """
                     kubectl --kubeconfig=${KUBECONFIG} apply -f deployment.yaml
                     kubectl --kubeconfig=${KUBECONFIG} set image deployment/eshop-web-app eshop-web-container=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
                     """
-                }
-            }
         }
+    }
+}
     }
 }
