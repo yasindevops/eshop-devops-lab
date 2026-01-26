@@ -32,16 +32,18 @@ pipeline {
             }
         }
 
-        stage('Deploy to K3s') {
-            steps {
-                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh """
-                        # Sertifika ismine (k8s-master) uygun şekilde komutları çalıştırıyoruz
-                        kubectl --kubeconfig=${KUBECONFIG} apply -f deployment.yaml
-                        kubectl --kubeconfig=${KUBECONFIG} set image deployment/eshop-web-app eshop-web-container=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
-                    """
-                }
-            }
+stage('Deploy to K3s') {
+    steps {
+        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+            sh """
+                # 1. Dosyayı uyguluyoruz
+                kubectl --kubeconfig=${KUBECONFIG} apply -f deployment.yaml
+                
+                # 2. İmajı güncelliyoruz (Konteyner adını 'my-app' yaptık)
+                kubectl --kubeconfig=${KUBECONFIG} set image deployment/eshop-web-app my-app=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
+            """
         }
+    }
+}
     }
 }
