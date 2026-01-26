@@ -36,10 +36,11 @@ kind: Service
 metadata:
   name: web-service
 spec:
+  type: NodePort # LoadBalancer yerine NodePort yapıyoruz
   selector:
-    app: web
+    app: eshop-web-app # Pod etiketlerinle aynı olmalı
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 80
-  type: LoadBalancer # K3s bunu otomatik olarak host portuna bağlar
+      port: 80         # Servis içi port
+      targetPort: 80   # Konteyner portu
+      nodePort: 30080  # Dışarıdan erişeceğin sabit port (30000-32767 arası)
