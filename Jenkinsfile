@@ -13,25 +13,23 @@ pipeline {
             }
         }
         stage('Docker Build') {
-    steps {
-        script {
-            // Jenkins'in o an hangi klasörde olduğunu ve içinde ne olduğunu görelim
-            sh "pwd"
-            sh "ls -R" 
-            
-            sh "docker build -t ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} -f src/Web/Dockerfile ."
-        }
-    }
-}
-        stage('Docker Build') {
             steps {
                 script {
-                    // Paylaştığın resimdeki Dockerfile yolunu kullanıyoruz
+                    // 1. Önce çalışma dizinini ve dosyaları kontrol edelim (Hata ayıklama için)
+                    sh "pwd"
+                    sh "ls -R" 
+                    
+                    // 2. Docker imajını build ediyoruz
+                    // Not: Dockerfile'ın 'src/Web/' içinde olduğundan emin ol
                     sh "docker build -t ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} -f src/Web/Dockerfile ."
+                    
+                    // 3. İmajı 'latest' olarak da etiketliyoruz (Opsiyonel ama iyi bir pratik)
                     sh "docker tag ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} ${REGISTRY}/${IMG_NAME}:latest"
                 }
             }
         }
+
+
         stage('Push to Nexus') {
             steps {
                 withCredentials([usernamePassword(credentialsId: "${NEXUS_CRED}", passwordVariable: 'PASS', usernameVariable: 'USER')]) {
