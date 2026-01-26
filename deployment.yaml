@@ -38,7 +38,7 @@ metadata:
 spec:
   type: NodePort # LoadBalancer yerine NodePort yapıyoruz
   selector:
-    app: eshop-web-app # Pod etiketlerinle aynı olmalı
+    app: web # Pod etiketlerinle aynı olmalı
   ports:
     - protocol: TCP
       port: 80         # Servis içi port
