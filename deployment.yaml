@@ -1,3 +1,45 @@
+# ---------------- SQL SERVER DEPLOYMENT ----------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mssql
+  template:
+    metadata:
+      labels:
+        app: mssql
+    spec:
+      
+      containers:
+      - name: mssql
+        image: mcr.microsoft.com/azure-sql-edge:latest 
+        ports:
+        - containerPort: 1433
+        env:
+        - name: ACCEPT_EULA
+          value: "Y"
+        - name: MSSQL_SA_PASSWORD
+          value: "GeciciSifre123!"
+---
+# A
+# ---------------- SQL SERVER SERVICE ----------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: sql-server-service
+spec:
+  selector:
+    app: mssql
+  ports:
+    - protocol: TCP
+      port: 1433
+      targetPort: 1433
+---
+# ---------------- ESHOP WEB APP DEPLOYMENT ----------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,36 +55,42 @@ spec:
         app: web
     spec:
       containers:
-      - name: my-app
-        # Burası Nexus'taki imaj adresin olacak
-        image: nexus-server.local:8083/my-first-app:latest
+      - name: eshop-web
+        image: nexus-server.local:8083/eshop-web:22 # Buradaki tag'i Jenkins'e göre kontrol et
         ports:
         - containerPort: 8080
         env:
-        # 1. Mevcut değişkenlerin
-        - name: CatalogBaseUrl
-          value: "http://web-service" 
-
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
-
-        # 2. YENİ EKLEYECEĞİNİZ: Bu hata için kritik olan değişken
         - name: PATH_BASE
-          value: "/" 
+          value: "/"
+        - name: CatalogBaseUrl
+          value: "/"
 
+        # Hiyerarşiyi hem çift alt tire hem de düz isim olarak veriyoruz (Garanti olsun)
         - name: ConnectionStrings__CatalogConnection
-          value: "Server=sql-server-ip;Database=CatalogDB;User Id=sa;Password=admin;"
+          value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
+        - name: CatalogConnection
+          value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
+        
+        - name: ConnectionStrings__IdentityConnection
+          value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
+        - name: IdentityConnection
+          value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
+
+
 ---
+# ---------------- ESHOP WEB APP SERVICE ----------------
 apiVersion: v1
 kind: Service
 metadata:
   name: web-service
 spec:
-  type: NodePort # LoadBalancer yerine NodePort yapıyoruz
+  type: NodePort
   selector:
-    app: web # Pod etiketlerinle aynı olmalı
+    app: web
   ports:
     - protocol: TCP
-      port: 80         # Servis içi port
-      targetPort: 8080   # Konteyner portu
-      nodePort: 30080  # Dışarıdan erişeceğin sabit port (30000-32767 arası)
+      port: 80
+      targetPort: 8080
+      nodePort: 30080
