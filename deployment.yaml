@@ -18,6 +18,18 @@ spec:
         image: nexus-server.local:8083/my-first-app:latest
         ports:
         - containerPort: 80
+        env:
+        # 1. Çökmeye sebep olan boş URL'i dolduruyoruz
+        - name: CatalogBaseUrl
+          value: "http://web-service" 
+
+        # 2. .NET'in Development modunda çalışmasını sağlıyoruz (hata detaylarını görmek için)
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+
+        # 3. İleride alacağınız veritabanı hatasını önlemek için (Şimdilik boş bir SQL adresi)
+        - name: ConnectionStrings__CatalogConnection
+          value: "Server=sql-server-ip;Database=CatalogDB;User Id=sa;Password=admin;"     
 ---
 apiVersion: v1
 kind: Service
