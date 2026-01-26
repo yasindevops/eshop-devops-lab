@@ -13,6 +13,17 @@ pipeline {
             }
         }
         stage('Docker Build') {
+    steps {
+        script {
+            // Jenkins'in o an hangi klasörde olduğunu ve içinde ne olduğunu görelim
+            sh "pwd"
+            sh "ls -R" 
+            
+            sh "docker build -t ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} -f src/Web/Dockerfile ."
+        }
+    }
+}
+        stage('Docker Build') {
             steps {
                 script {
                     // Paylaştığın resimdeki Dockerfile yolunu kullanıyoruz
