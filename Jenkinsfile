@@ -12,18 +12,19 @@ pipeline {
                 checkout scm // GitHub'dan kodu çek
             }
         }
+
         stage('Docker Build') {
             steps {
                 script {
-                    // 1. Önce çalışma dizinini ve dosyaları kontrol edelim (Hata ayıklama için)
+                    // 1. Klasör yapısını doğrulamak için (Artık emin olduğumuz için pwd/ls kalabilir veya silinebilir)
                     sh "pwd"
                     sh "ls -R" 
                     
-                    // 2. Docker imajını build ediyoruz
-                    // Not: Dockerfile'ın 'src/Web/' içinde olduğundan emin ol
-                    sh "docker build -t ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} -f src/Web/Dockerfile ."
+                    // 2. Doğru dosya yolu: src/src/Web/Dockerfile
+                    // Komutun sonundaki '.' işareti Docker context'ini ana dizin olarak ayarlar.
+                    sh "docker build -t ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} -f src/src/Web/Dockerfile ."
                     
-                    // 3. İmajı 'latest' olarak da etiketliyoruz (Opsiyonel ama iyi bir pratik)
+                    // 3. Imajı 'latest' olarak etiketleme
                     sh "docker tag ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} ${REGISTRY}/${IMG_NAME}:latest"
                 }
             }
