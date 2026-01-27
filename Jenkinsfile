@@ -32,19 +32,31 @@ pipeline {
             }
         }
 
-stage('Fix DNS') {
+stage('Auto-Discover & Fix Environment') {
     steps {
         script {
-            // K8s Master'ın güncel IP'sini buraya yaz
-            def k8sMasterIp = "172.17.167.89" 
+            echo "K8s Master IP adresi Multipass üzerinden tespit ediliyor..."
+            
+            // 1. Host makinedeki Multipass'e sorup güncel IP'yi alıyoruz
+            def getIpCmd = "multipass info k8s-master --format csv | grep k8s-master | cut -d, -f3"
+            env.K8S_MASTER_IP = sh(script: getIpCmd, returnStdout: true).trim()
+            
+            if (!env.K8S_MASTER_IP) {
+                error "HATA: K8s Master IP'si alınamadı. Makine kapalı olabilir!"
+            }
+            
+            echo "Güncel IP Tespit Edildi: ${env.K8S_MASTER_IP}"
+
+            // 2. Hem hosts dosyasını hem de kubeconfig'i tek seferde tamir ediyoruz
             sh """
-                # Eğer k8s-master kaydı yoksa ekle
-                if ! grep -q "k8s-master" /etc/hosts; then
-                    echo "${k8sMasterIp} k8s-master" >> /etc/hosts
-                else
-                    # Eğer varsa ama IP yanlışsa güncelle
-                    sed -i "s/.*k8s-master/${k8sMasterIp} k8s-master/" /etc/hosts
-                fi
+                # Hosts dosyasını temizle ve yeni IP'yi yaz
+                sed -i '/k8s-master/d' /etc/hosts
+                echo '${env.K8S_MASTER_IP} k8s-master' >> /etc/hosts
+                
+                # Kubeconfig içindeki server adresini (IP kısmını) otomatik güncelle
+                sed -i "s|server: https://.*:6443|server: https://${env.K8S_MASTER_IP}:6443|" ${KUBECONFIG}
+                
+                echo "Bağlantı ayarları otomatik olarak güncellendi ve doğrulandı."
             """
         }
     }
