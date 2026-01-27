@@ -1,4 +1,17 @@
-# ---------------- SQL SERVER DEPLOYMENT ----------------
+# ---------------- 1. SQL DATA STORAGE (PVC) ----------------
+# SQL verilerinin konteyner silinse bile kalmasını sağlar.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mssql-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+# ---------------- 2. SQL SERVER DEPLOYMENT ----------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,10 +26,9 @@ spec:
       labels:
         app: mssql
     spec:
-      
       containers:
       - name: mssql
-        image: mcr.microsoft.com/azure-sql-edge:latest 
+        image: mcr.microsoft.com/azure-sql-edge:latest
         ports:
         - containerPort: 1433
         env:
@@ -24,9 +36,15 @@ spec:
           value: "Y"
         - name: MSSQL_SA_PASSWORD
           value: "GeciciSifre123!"
+        volumeMounts:
+        - name: mssql-storage
+          mountPath: /var/opt/mssql
+      volumes:
+      - name: mssql-storage
+        persistentVolumeClaim:
+          claimName: mssql-data-pvc
 ---
-# A
-# ---------------- SQL SERVER SERVICE ----------------
+# ---------------- 3. SQL SERVER SERVICE ----------------
 apiVersion: v1
 kind: Service
 metadata:
@@ -39,7 +57,7 @@ spec:
       port: 1433
       targetPort: 1433
 ---
-# ---------------- ESHOP WEB APP DEPLOYMENT ----------------
+# ---------------- 4. ESHOP WEB APP DEPLOYMENT ----------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -56,31 +74,19 @@ spec:
     spec:
       containers:
       - name: eshop-web
-        image: nexus-server.local:8083/eshop-web:22 # Buradaki tag'i Jenkins'e göre kontrol et
+        # Pipeline build numarasına göre burayı otomatik güncelliyor olmalı
+        image: nexus-server.local:8083/eshop-web:22 
         ports:
         - containerPort: 8080
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
-        - name: PATH_BASE
-          value: "/"
-        - name: CatalogBaseUrl
-          value: "/"
-
-        # Hiyerarşiyi hem çift alt tire hem de düz isim olarak veriyoruz (Garanti olsun)
         - name: ConnectionStrings__CatalogConnection
           value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
-        - name: CatalogConnection
-          value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
-        
         - name: ConnectionStrings__IdentityConnection
           value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
-        - name: IdentityConnection
-          value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
-
-
 ---
-# ---------------- ESHOP WEB APP SERVICE ----------------
+# ---------------- 5. ESHOP WEB APP SERVICE ----------------
 apiVersion: v1
 kind: Service
 metadata:
