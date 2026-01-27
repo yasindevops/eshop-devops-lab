@@ -40,14 +40,14 @@ stage('Auto-Discover IP') {
                 env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
                 
                 sh """
-                    # KRİTİK NOKTA: Kubeconfig içindeki 'k8s-master' ismini 
-                    # tamamen silip yerine direkt IP adresini yazıyoruz.
-                    # Böylece kubectl artık DNS sorgusu (8.8.8.8) yapmaz.
-                    sed -i "s|https://k8s-master:6443|https://${env.K8S_MASTER_IP}:6443|" ${KUBECONFIG}
-                    sed -i "s|server: https://.*:6443|server: https://${env.K8S_MASTER_IP}:6443|" ${KUBECONFIG}
-                    
-                    echo "Kubeconfig artık isim yerine direkt IP (${env.K8S_MASTER_IP}) kullanıyor."
-                """
+                    # Dosya içinde k8s-master geçen HER ŞEYİ IP ile değiştir
+                    sed -i "s|k8s-master|${env.K8S_MASTER_IP}|g" ${KUBECONFIG}
+    
+                    # Ekstra garanti: https kısmını tekrar kontrol et
+                    sed -i "s|https://.*:6443|https://${env.K8S_MASTER_IP}:6443|g" ${KUBECONFIG}
+    
+                    echo "Kubeconfig tepeden tırnağa IP (${env.K8S_MASTER_IP}) ile güncellendi."
+                    """
             }
         }
     }
@@ -58,12 +58,12 @@ stage('Deploy to K3s') {
     steps {
         withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
             sh """
-                # 1. Dosyayı uyguluyoruz
-                kubectl --kubeconfig=${KUBECONFIG} apply -f deployment.yaml
-                
-                # 2. İmajı güncelliyoruz (Konteyner adını 'my-app' yaptık)
+                # --validate=false ekleyerek DNS sorgusunu (openapi) devre dışı bırakıyoruz
+                kubectl --kubeconfig=${KUBECONFIG} apply -f deployment.yaml --validate=false
+    
+                 # İmaj güncelleme
                 kubectl --kubeconfig=${KUBECONFIG} set image deployment/eshop-web-app my-app=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
-            """
+                """
         }
     }
 }
