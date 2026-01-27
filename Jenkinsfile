@@ -32,31 +32,28 @@ pipeline {
             }
         }
 
-stage('Auto-Discover & Fix Environment') {
+stage('Auto-Discover IP') {
     steps {
         script {
-            echo "K8s Master IP adresi Multipass üzerinden tespit ediliyor..."
-            
-            // 1. Host makinedeki Multipass'e sorup güncel IP'yi alıyoruz
-            def getIpCmd = "multipass info k8s-master --format csv | grep k8s-master | cut -d, -f3"
-            env.K8S_MASTER_IP = sh(script: getIpCmd, returnStdout: true).trim()
-            
-            if (!env.K8S_MASTER_IP) {
-                error "HATA: K8s Master IP'si alınamadı. Makine kapalı olabilir!"
+            // Jenkins'in içindeki dosyayı kontrol et ve oku
+            if (fileExists('/var/jenkins_home/k8s_ip.txt')) {
+                // Dosyayı okuyoruz ve değişkene atıyoruz
+                env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
+                echo "Başarılı! Dosyadan okunan güncel IP: ${env.K8S_MASTER_IP}"
+            } else {
+                // Eğer dosyayı henüz içeri atmadıysan hata verir
+                error "HATA: /var/jenkins_home/k8s_ip.txt dosyası bulunamadı! Lütfen 'docker cp' komutuyla dosyayı içeri atın."
             }
-            
-            echo "Güncel IP Tespit Edildi: ${env.K8S_MASTER_IP}"
 
-            // 2. Hem hosts dosyasını hem de kubeconfig'i tek seferde tamir ediyoruz
+            // Şimdi bu IP'yi kullanarak gerekli dosyaları tamir ediyoruz
             sh """
-                # Hosts dosyasını temizle ve yeni IP'yi yaz
+                # Hosts dosyasını güncelle (k8s-master ismini bu IP'ye bağla)
                 sed -i '/k8s-master/d' /etc/hosts
                 echo '${env.K8S_MASTER_IP} k8s-master' >> /etc/hosts
                 
-                # Kubeconfig içindeki server adresini (IP kısmını) otomatik güncelle
+                # Kubeconfig dosyasındaki eski IP'yi yenisiyle değiştir
+                # Bu sayede kubectl Master'ı bulabilir
                 sed -i "s|server: https://.*:6443|server: https://${env.K8S_MASTER_IP}:6443|" ${KUBECONFIG}
-                
-                echo "Bağlantı ayarları otomatik olarak güncellendi ve doğrulandı."
             """
         }
     }
