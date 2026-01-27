@@ -45,13 +45,12 @@ stage('Auto-Discover IP') {
                 }
 
                 sh """
-                    # IP güncelleme işlemleri
-                    sed -i '/k8s-master/d' /etc/hosts
-                    echo '${env.K8S_MASTER_IP} k8s-master' >> /etc/hosts
-                    
-                    # Buradaki KUBECONFIG artık hata vermeyecek
+                    # Sadece KUBECONFIG içindeki server adresini (IP'yi) güncelle
+                    # Bu dosya Jenkins'in kendi yetki alanında olduğu için hata vermez
                     sed -i "s|server: https://.*:6443|server: https://${env.K8S_MASTER_IP}:6443|" ${KUBECONFIG}
-                """
+    
+                    echo "KUBECONFIG dosyası güncel IP (${env.K8S_MASTER_IP}) ile başarıyla yamalandı."
+                    """
             }
         }
     }
