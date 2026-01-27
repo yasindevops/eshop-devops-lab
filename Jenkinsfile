@@ -34,27 +34,25 @@ pipeline {
 
 stage('Auto-Discover IP') {
     steps {
-        script {
-            // Jenkins'in içindeki dosyayı kontrol et ve oku
-            if (fileExists('/var/jenkins_home/k8s_ip.txt')) {
-                // Dosyayı okuyoruz ve değişkene atıyoruz
-                env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
-                echo "Başarılı! Dosyadan okunan güncel IP: ${env.K8S_MASTER_IP}"
-            } else {
-                // Eğer dosyayı henüz içeri atmadıysan hata verir
-                error "HATA: /var/jenkins_home/k8s_ip.txt dosyası bulunamadı! Lütfen 'docker cp' komutuyla dosyayı içeri atın."
-            }
+        // KUBECONFIG dosyasını kullanabilmek için bu blok şart!
+        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+            script {
+                if (fileExists('/var/jenkins_home/k8s_ip.txt')) {
+                    env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
+                    echo "Başarılı! Dosyadan okunan güncel IP: ${env.K8S_MASTER_IP}"
+                } else {
+                    error "HATA: k8s_ip.txt bulunamadı!"
+                }
 
-            // Şimdi bu IP'yi kullanarak gerekli dosyaları tamir ediyoruz
-            sh """
-                # Hosts dosyasını güncelle (k8s-master ismini bu IP'ye bağla)
-                sed -i '/k8s-master/d' /etc/hosts
-                echo '${env.K8S_MASTER_IP} k8s-master' >> /etc/hosts
-                
-                # Kubeconfig dosyasındaki eski IP'yi yenisiyle değiştir
-                # Bu sayede kubectl Master'ı bulabilir
-                sed -i "s|server: https://.*:6443|server: https://${env.K8S_MASTER_IP}:6443|" ${KUBECONFIG}
-            """
+                sh """
+                    # IP güncelleme işlemleri
+                    sed -i '/k8s-master/d' /etc/hosts
+                    echo '${env.K8S_MASTER_IP} k8s-master' >> /etc/hosts
+                    
+                    # Buradaki KUBECONFIG artık hata vermeyecek
+                    sed -i "s|server: https://.*:6443|server: https://${env.K8S_MASTER_IP}:6443|" ${KUBECONFIG}
+                """
+            }
         }
     }
 }
