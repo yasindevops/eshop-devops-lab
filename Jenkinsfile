@@ -32,6 +32,25 @@ pipeline {
             }
         }
 
+stage('Fix DNS') {
+    steps {
+        script {
+            // K8s Master'ın güncel IP'sini buraya yaz
+            def k8sMasterIp = "172.17.167.89" 
+            sh """
+                # Eğer k8s-master kaydı yoksa ekle
+                if ! grep -q "k8s-master" /etc/hosts; then
+                    echo "${k8sMasterIp} k8s-master" >> /etc/hosts
+                else
+                    # Eğer varsa ama IP yanlışsa güncelle
+                    sed -i "s/.*k8s-master/${k8sMasterIp} k8s-master/" /etc/hosts
+                fi
+            """
+        }
+    }
+}
+
+
 stage('Deploy to K3s') {
     steps {
         withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
