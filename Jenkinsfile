@@ -40,14 +40,18 @@ stage('Auto-Discover IP') {
                 env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
                 
                 sh """
-                    # Dosya içinde k8s-master geçen HER ŞEYİ IP ile değiştir
-                    sed -i "s|k8s-master|${env.K8S_MASTER_IP}|g" ${KUBECONFIG}
-    
-                    # Ekstra garanti: https kısmını tekrar kontrol et
-                    sed -i "s|https://.*:6443|https://${env.K8S_MASTER_IP}:6443|g" ${KUBECONFIG}
-    
-                    echo "Kubeconfig tepeden tırnağa IP (${env.K8S_MASTER_IP}) ile güncellendi."
-                    """
+                # 1. Dosyanın yedeğini al (güvenlik için)
+                cp ${KUBECONFIG} ${KUBECONFIG}.bak
+
+                 # 2. Dosya içindeki her yerde ama her yerde 'k8s-master' gördüğün an IP'yi bas.
+                    # 'g' (global) ve 'I' (ignore case) kullanarak her türlü varyasyonu yakalıyoruz.
+                    sed -i "s/k8s-master/${env.K8S_MASTER_IP}/gI" ${KUBECONFIG}
+
+                # 3. Dosyayı kontrol et (Loglarda neye dönüştüğünü görelim - Güvenlik uyarısı verebilir ama sorunu çözer)
+                echo "--- GÜNCELLENEN CONFIG (İLK 10 SATIR) ---"
+                head -n 10 ${KUBECONFIG}
+                echo "----------------------------------------"
+                """
             }
         }
     }
