@@ -61,16 +61,14 @@ stage('Deploy to K3s') {
     steps {
         withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
             script {
-                // IP'yi zaten dosyadan okumuştuk
                 def masterIp = env.K8S_MASTER_IP
                 
                 sh """
                     # 1. Dosyayı uyguluyoruz 
-                    # --server parametresi ile kubeconfig içindeki k8s-master ismini eziyoruz!
                     kubectl --kubeconfig=${KUBECONFIG} --server=https://${masterIp}:6443 --insecure-skip-tls-verify apply -f deployment.yaml --validate=false
                     
-                    # 2. İmajı güncelliyoruz
-                    kubectl --kubeconfig=${KUBECONFIG} --server=https://${masterIp}:6443 --insecure-skip-tls-verify set image deployment/eshop-web-app my-app=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
+                    # 2. İmajı güncelliyoruz (DÜZELTİLEN KISIM: my-app yerine eshop-web)
+                    kubectl --kubeconfig=${KUBECONFIG} --server=https://${masterIp}:6443 --insecure-skip-tls-verify set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
                 """
             }
         }
