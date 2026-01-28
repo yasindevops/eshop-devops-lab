@@ -1,88 +1,34 @@
 pipeline {
     agent any
+    
     environment {
-        REGISTRY = "nexus-server.local:8083"
-        IMG_NAME = "eshop-web"
+        // Altyapı artık sabit, değişkenler net
+        REGISTRY    = "nexus-server.local:8083"
+        K8S_MASTER  = "192.168.1.60"
+        IMG_NAME    = "eshop-web"
     }
+
     stages {
-        stage('Checkout') {
+        stage('Docker Build & Push') {
             steps {
-                checkout scm
+                // Dockerfile yolu ve imaj etiketleme
+                sh "docker build -t ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} -f src/src/Web/Dockerfile ."
+                sh "docker push ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
             }
         }
 
-        stage('Docker Build') {
+        stage('Deploy to K3s') {
             steps {
-                script {
-                    // Loglarındaki src/src/Web yapısına göre güncellendi
-                    sh "docker build -t ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} -f src/src/Web/Dockerfile ."
-                    sh "docker tag ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER} ${REGISTRY}/${IMG_NAME}:latest"
+                // Kubeconfig dosyasını Jenkins Credentials'tan alıyoruz
+                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh """
+                        # Kubernetes'e yeni imajı ve deployment dosyasını gönder
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify apply -f deployment.yaml
+                        
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
+                    """
                 }
             }
         }
-
-        stage('Push to Nexus') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'nexus-auth', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                        sh "echo ${PASS} | docker login ${REGISTRY} -u ${USER} --password-stdin"
-                        sh "docker push ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
-                    }
-                }
-            }
-        }
-
-stage('Auto-Discover IP') {
-    steps {
-        script {
-            echo "K8s Master IP adresi kontrol ediliyor..."
-            
-            // 1. Önce Multipass üzerinden güncel IP'yi almayı dene
-            try {
-                def getIpCmd = "multipass info k8s-master --format csv | grep k8s-master | cut -d, -f3"
-                env.K8S_MASTER_IP = sh(script: getIpCmd, returnStdout: true).trim()
-                
-                // 2. Aldığı IP'yi dosyaya da yazsın ki bir sonraki seferde okuyabilsin
-                sh "echo ${env.K8S_MASTER_IP} > /var/jenkins_home/k8s_ip.txt"
-                echo "Güncel IP Multipass üzerinden çekildi: ${env.K8S_MASTER_IP}"
-            } 
-            catch (Exception e) {
-                echo "Multipass'e erişilemedi, eski dosyadan okunmaya çalışılıyor..."
-                if (fileExists('/var/jenkins_home/k8s_ip.txt')) {
-                    env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
-                } else {
-                    error "HATA: Ne Multipass'e ulaşılabildi ne de k8s_ip.txt dosyası bulundu!"
-                }
-            }
-        }
-    }
-}
-
-stage('Deploy to K3s') {
-    steps {
-        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
-            script {
-                // EĞER env.K8S_MASTER_IP boşsa, git dosyadan tekrar oku
-                if (env.K8S_MASTER_IP == null || env.K8S_MASTER_IP == "") {
-                    echo "Değişken boş! Dosyadan okunmaya çalışılıyor..."
-                    env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
-                }
-                
-                def masterIp = env.K8S_MASTER_IP
-                echo "Bağlanılacak K3s Master IP: ${masterIp}"
-
-                sh """
-                    # IP hala boşsa burada hata verir ve durur
-                    if [ -z "${masterIp}" ]; then echo "HATA: IP bulunamadı!"; exit 1; fi
-
-                    kubectl --kubeconfig=${KUBECONFIG} --server=https://${masterIp}:6443 --insecure-skip-tls-verify apply -f deployment.yaml --validate=false
-                    
-                    kubectl --kubeconfig=${KUBECONFIG} --server=https://${masterIp}:6443 --insecure-skip-tls-verify set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
-                """
-            }
-        }
-    }
-}
-
     }
 }
