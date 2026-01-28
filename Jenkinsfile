@@ -62,13 +62,21 @@ stage('Deploy to K3s') {
     steps {
         withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
             script {
-                def masterIp = env.K8S_MASTER_IP
+                // EĞER env.K8S_MASTER_IP boşsa, git dosyadan tekrar oku
+                if (env.K8S_MASTER_IP == null || env.K8S_MASTER_IP == "") {
+                    echo "Değişken boş! Dosyadan okunmaya çalışılıyor..."
+                    env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
+                }
                 
+                def masterIp = env.K8S_MASTER_IP
+                echo "Bağlanılacak K3s Master IP: ${masterIp}"
+
                 sh """
-                    # 1. Dosyayı uyguluyoruz 
+                    # IP hala boşsa burada hata verir ve durur
+                    if [ -z "${masterIp}" ]; then echo "HATA: IP bulunamadı!"; exit 1; fi
+
                     kubectl --kubeconfig=${KUBECONFIG} --server=https://${masterIp}:6443 --insecure-skip-tls-verify apply -f deployment.yaml --validate=false
                     
-                    # 2. İmajı güncelliyoruz (DÜZELTİLEN KISIM: my-app yerine eshop-web)
                     kubectl --kubeconfig=${KUBECONFIG} --server=https://${masterIp}:6443 --insecure-skip-tls-verify set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
                 """
             }
