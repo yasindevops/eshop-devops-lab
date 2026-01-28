@@ -34,24 +34,25 @@ pipeline {
 
 stage('Auto-Discover IP') {
     steps {
-        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
-            script {
-                // IP'yi dosyadan okuyoruz (Zaten bunu yapmıştık)
-                env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
+        script {
+            echo "K8s Master IP adresi kontrol ediliyor..."
+            
+            // 1. Önce Multipass üzerinden güncel IP'yi almayı dene
+            try {
+                def getIpCmd = "multipass info k8s-master --format csv | grep k8s-master | cut -d, -f3"
+                env.K8S_MASTER_IP = sh(script: getIpCmd, returnStdout: true).trim()
                 
-                sh """
-                # 1. Dosyanın yedeğini al (güvenlik için)
-                cp ${KUBECONFIG} ${KUBECONFIG}.bak
-
-                 # 2. Dosya içindeki her yerde ama her yerde 'k8s-master' gördüğün an IP'yi bas.
-                    # 'g' (global) ve 'I' (ignore case) kullanarak her türlü varyasyonu yakalıyoruz.
-                    sed -i "s/k8s-master/${env.K8S_MASTER_IP}/gI" ${KUBECONFIG}
-
-                # 3. Dosyayı kontrol et (Loglarda neye dönüştüğünü görelim - Güvenlik uyarısı verebilir ama sorunu çözer)
-                echo "--- GÜNCELLENEN CONFIG (İLK 10 SATIR) ---"
-                head -n 10 ${KUBECONFIG}
-                echo "----------------------------------------"
-                """
+                // 2. Aldığı IP'yi dosyaya da yazsın ki bir sonraki seferde okuyabilsin
+                sh "echo ${env.K8S_MASTER_IP} > /var/jenkins_home/k8s_ip.txt"
+                echo "Güncel IP Multipass üzerinden çekildi: ${env.K8S_MASTER_IP}"
+            } 
+            catch (Exception e) {
+                echo "Multipass'e erişilemedi, eski dosyadan okunmaya çalışılıyor..."
+                if (fileExists('/var/jenkins_home/k8s_ip.txt')) {
+                    env.K8S_MASTER_IP = readFile('/var/jenkins_home/k8s_ip.txt').trim()
+                } else {
+                    error "HATA: Ne Multipass'e ulaşılabildi ne de k8s_ip.txt dosyası bulundu!"
+                }
             }
         }
     }
