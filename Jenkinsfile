@@ -22,6 +22,7 @@ stage('SonarQube Analysis') {
 sh """
     # Globalization hatasını bypass etmek için:
     export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+    export PATH="\$PATH:/var/jenkins_home/.dotnet/tools"
     
     dotnet sonarscanner begin /k:"eshop-web-app" \
         /d:sonar.host.url="http://192.168.1.80:9000" \
