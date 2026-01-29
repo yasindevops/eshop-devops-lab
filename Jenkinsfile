@@ -9,7 +9,7 @@ pipeline {
     }
 
  stages {
-    
+
 stage('SonarQube Analysis') {
     steps {
         script {
@@ -20,6 +20,8 @@ stage('SonarQube Analysis') {
             // withSonarQubeEnv otomatik olarak gerekli ortam değişkenlerini (token vb.) içeri aktarır
             withSonarQubeEnv('SonarQube-Server') { 
                 sh """
+                    export PATH="\$PATH:\$HOME/.dotnet/tools"
+                    
                     # .NET Scanner'ı başlat
                     dotnet sonarscanner begin /k:"eshop-web-app" \
                         /d:sonar.host.url="http://192.168.1.80:9000" \
