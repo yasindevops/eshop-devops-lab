@@ -8,6 +8,32 @@ pipeline {
         IMG_NAME    = "eshop-web"
     }
 
+stage('SonarQube Analysis') {
+    steps {
+        script {
+            // Tools'tan scanner'ı çekiyoruz
+            def scannerHome = tool 'SonarScanner' 
+            
+            // System ayarlarındaki 'SonarQube-Server' ismini kullanıyoruz
+            // withSonarQubeEnv otomatik olarak gerekli ortam değişkenlerini (token vb.) içeri aktarır
+            withSonarQubeEnv('SonarQube-Server') { 
+                sh """
+                    # .NET Scanner'ı başlat
+                    dotnet sonarscanner begin /k:"eshop-web-app" \
+                        /d:sonar.host.url="http://192.168.1.80:9000" \
+                        /d:sonar.token=${SONAR_AUTH_TOKEN} 
+                    
+                    # Projeyi derle (Analiz bu sırada yapılır)
+                    dotnet build src/eShopOnWeb.sln --configuration Release
+                    
+                    # Analizi bitir ve raporu .80 sunucusuna gönder
+                    dotnet sonarscanner end /d:sonar.token=${SONAR_AUTH_TOKEN}
+                """
+            }
+        }
+    }
+}
+
     stages {
         stage('Docker Build & Push') {
             steps {
