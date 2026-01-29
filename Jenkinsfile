@@ -8,6 +8,8 @@ pipeline {
         IMG_NAME    = "eshop-web"
     }
 
+ stages {
+    
 stage('SonarQube Analysis') {
     steps {
         script {
@@ -34,7 +36,7 @@ stage('SonarQube Analysis') {
     }
 }
 
-    stages {
+   
         stage('Docker Build & Push') {
             steps {
                 // Dockerfile yolu ve imaj etiketleme
