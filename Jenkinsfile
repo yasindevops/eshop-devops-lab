@@ -19,7 +19,10 @@ stage('SonarQube Analysis') {
             // System ayarlarındaki 'SonarQube-Server' ismini kullanıyoruz
             // withSonarQubeEnv otomatik olarak gerekli ortam değişkenlerini (token vb.) içeri aktarır
             withSonarQubeEnv('SonarQube-Server') { 
- sh """
+sh """
+    # Globalization hatasını bypass etmek için:
+    export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+    
     dotnet sonarscanner begin /k:"eshop-web-app" \
         /d:sonar.host.url="http://192.168.1.80:9000" \
         /d:sonar.token=sqa_59cde8276b79bae8e6a1e1f4b5837787ad19c15f
