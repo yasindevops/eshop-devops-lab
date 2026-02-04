@@ -54,7 +54,7 @@ pipeline {
                             # HTML Raporu üret
                             ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@${SEC_SERVER} \
                             "TRIVY_USERNAME=${NEXUS_USER} TRIVY_PASSWORD=${NEXUS_PASS} \
-                            trivy image --image-src remote --format template --template '@/usr/share/trivy/templates/html.tpl' \
+                            trivy image --image-src remote --format template --template '@/usr/local/share/trivy/templates/html.tpl' \
                             -o /home/sonarqube/trivy-report.html --insecure ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
 
                             # Raporu Jenkins'e çek
