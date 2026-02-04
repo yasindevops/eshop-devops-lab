@@ -36,6 +36,9 @@ pipeline {
     
                                 # 4. Analizi bitir
                                 dotnet-sonarscanner end /d:sonar.token=${SONAR_TOKEN}
+
+                                // dotnet-sonarscanner begin komutunun içine şu satırı ekle:
+                                /d:sonar.externalIssuesReportPaths="trivy-results.json"
                                 """
                         }
                     }
@@ -55,19 +58,22 @@ stage('Trivy Security Scan') {
         script {
             withCredentials([usernamePassword(credentialsId: 'nexus-auth', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                 sh '''
+                    # 1. Tarama yap ve sonucu JSON olarak kaydet
                     ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@192.168.1.80 \
                     "TRIVY_USERNAME=${NEXUS_USER} TRIVY_PASSWORD=${NEXUS_PASS} \
-                    trivy image --image-src remote \
-                    --severity HIGH,CRITICAL \
-                    --timeout 20m \
-                    --exit-code 0 \
-                    --insecure \
-                    ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
+                    trivy image --image-src remote --format json -o /home/sonarqube/trivy-results.json \
+                    --insecure ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
+                    
+                    # 2. JSON dosyasını Jenkins makinesine geri çek (SonarQube'e göndermek için)
+                    scp -i /var/jenkins_home/.ssh/id_ed25519 sonarqube@192.168.1.80:/home/sonarqube/trivy-results.json .
                 '''
             }
         }
     }
 }
+
+
+
 
         stage('Deploy to K3s') {
             steps {
