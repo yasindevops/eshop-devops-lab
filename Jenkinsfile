@@ -50,6 +50,26 @@ pipeline {
             }
         }
 
+        stage('Trivy Security Scan') {
+            steps {
+                script {
+                    // 'nexus-auth' ID'li credential'ı kullanıyoruz
+                    withCredentials([usernamePassword(credentialsId: 'nexus-auth', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no sonarqube@192.168.1.80 \
+                            "TRIVY_USERNAME='${NEXUS_USER}' TRIVY_PASSWORD='${NEXUS_PASS}' \
+                            trivy image --image-src remote \
+                            --severity HIGH,CRITICAL \
+                            --timeout 20m \
+                            --exit-code 1 \
+                            --insecure \
+                            ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Deploy to K3s') {
             steps {
                 withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
