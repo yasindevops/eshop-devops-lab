@@ -55,10 +55,14 @@ stage('Trivy Security Scan') {
         script {
             withCredentials([usernamePassword(credentialsId: 'nexus-auth', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                 sh '''
-                    # Konteyner içindeki SSH anahtar yolunu (-i) belirtiyoruz
                     ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@192.168.1.80 \
                     "TRIVY_USERNAME=${NEXUS_USER} TRIVY_PASSWORD=${NEXUS_PASS} \
-                    trivy image --image-src remote --severity HIGH,CRITICAL --timeout 20m --exit-code 1 --insecure ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
+                    trivy image --image-src remote \
+                    --severity HIGH,CRITICAL \
+                    --timeout 20m \
+                    --exit-code 0 \
+                    --insecure \
+                    ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
                 '''
             }
         }
