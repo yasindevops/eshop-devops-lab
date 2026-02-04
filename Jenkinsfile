@@ -21,16 +21,22 @@ pipeline {
                             sh """
                                 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
                                 export PATH="\$PATH:/var/jenkins_home/.dotnet/tools"
-                                
-                                # Token'ı açıkça yazmak yerine değişkenden okuyoruz
+
+                                # 1. Önceki kalıntıları temizle
+                                dotnet clean src/eShopOnWeb.sln
+
+                                # 2. Analizi başlat (Exclusion ile)
                                 dotnet-sonarscanner begin /k:"eshop-web-app" \
-                                    /d:sonar.host.url="http://192.168.1.80:9000" \
-                                    /d:sonar.token=${SONAR_TOKEN}
-                                
+                                /d:sonar.host.url="http://192.168.1.80:9000" \
+                                /d:sonar.token=${SONAR_TOKEN} \
+                                /d:sonar.exclusions="**/_Imports.razor"
+    
+                                # 3. Yeniden build et
                                 dotnet build src/eShopOnWeb.sln --configuration Release
-                                
+    
+                                # 4. Analizi bitir
                                 dotnet-sonarscanner end /d:sonar.token=${SONAR_TOKEN}
-                            """
+                                """
                         }
                     }
                 }
