@@ -8,30 +8,31 @@ pipeline {
         SEC_SERVER  = "192.168.1.80" 
     }
 
-stage('SonarQube Analysis') {
-    steps {
-        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-            script {
-                def scannerHome = tool 'SonarScanner' 
-                withSonarQubeEnv('SonarQube-Server') { 
-                    sh """
-                        export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
-                        export PATH="\$PATH:/var/jenkins_home/.dotnet/tools"
-                        
-                        # Hata veren dosyayı /d:sonar.exclusions ile hariç tutuyoruz
-                        dotnet-sonarscanner begin /k:"eshop-web-app" \
-                            /d:sonar.host.url="http://${SEC_SERVER}:9000" \
-                            /d:sonar.token=${SONAR_TOKEN} \
-                            /d:sonar.exclusions="**/_Imports.razor"
-                        
-                        dotnet build src/eShopOnWeb.sln --configuration Release
-                        dotnet-sonarscanner end /d:sonar.token=${SONAR_TOKEN}
-                    """
+    stages {
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    script {
+                        def scannerHome = tool 'SonarScanner' 
+                        withSonarQubeEnv('SonarQube-Server') { 
+                            sh """
+                                export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+                                export PATH="\$PATH:/var/jenkins_home/.dotnet/tools"
+                                
+                                # Hata veren dosyayı /d:sonar.exclusions ile hariç tutuyoruz
+                                dotnet-sonarscanner begin /k:"eshop-web-app" \
+                                    /d:sonar.host.url="http://${SEC_SERVER}:9000" \
+                                    /d:sonar.token=${SONAR_TOKEN} \
+                                    /d:sonar.exclusions="**/_Imports.razor"
+                                
+                                dotnet build src/eShopOnWeb.sln --configuration Release
+                                dotnet-sonarscanner end /d:sonar.token=${SONAR_TOKEN}
+                            """
+                        }
+                    }
                 }
             }
         }
-    }
-} 
 
         stage('Docker Build & Push') {
             steps {
