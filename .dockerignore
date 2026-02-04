@@ -1,0 +1,10 @@
+**/.git
+**/.vscode
+**/bin
+**/obj
+**/out
+**/node_modules
+**/.sonarqube
+Dockerfile
+Jenkinsfile
+README.md
