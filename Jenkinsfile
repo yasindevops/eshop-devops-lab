@@ -66,16 +66,40 @@ pipeline {
             }
         }
 
-        stage('Deploy to K3s') {
-            steps {
-                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh """
-                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
-                    """
-                }
-            }
+stage('Deploy to K3s') {
+    steps {
+        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+            sh """
+                # 1. Önce imajı güncelle (Senin mevcut başarılı komutun)
+                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
+
+                # 2. Üzerine kaynak ve sağlık kontrollerini yamala (Geliştirme)
+                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                patch deployment eshop-web-app --patch '{
+                    "spec": {
+                        "template": {
+                            "spec": {
+                                "containers": [{
+                                    "name": "eshop-web",
+                                    "resources": {
+                                        "limits": {"cpu": "500m", "memory": "512Mi"},
+                                        "requests": {"cpu": "250m", "memory": "256Mi"}
+                                    },
+                                    "readinessProbe": {
+                                        "httpGet": {"path": "/", "port": 80},
+                                        "initialDelaySeconds": 15,
+                                        "periodSeconds": 10
+                                    }
+                                }]
+                            }
+                        }
+                    }
+                }'
+            """
         }
     }
+}
 
     // Her build sonrası disk temizliği (Başarılı olsa da olmasa da çalışır)
     post {
