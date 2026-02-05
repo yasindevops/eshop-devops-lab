@@ -13,13 +13,12 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     script {
-                        def scannerHome = tool 'SonarScanner' 
                         withSonarQubeEnv('SonarQube-Server') { 
                             sh """
                                 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
                                 export PATH="\$PATH:/var/jenkins_home/.dotnet/tools"
                                 
-                                # Hata veren dosyayı /d:sonar.exclusions ile hariç tutuyoruz
+                                # Excluding problematic file with /d:sonar.exclusions
                                 dotnet-sonarscanner begin /k:"eshop-web-app" \
                                     /d:sonar.host.url="http://${SEC_SERVER}:9000" \
                                     /d:sonar.token=${SONAR_TOKEN} \
@@ -46,18 +45,18 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'nexus-auth', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                         sh """
-                            # Tabloyu konsola bas
+                            # Display results in console
                             ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@${SEC_SERVER} \
                             "TRIVY_USERNAME=${NEXUS_USER} TRIVY_PASSWORD=${NEXUS_PASS} \
                             trivy image --image-src remote --severity HIGH,CRITICAL --insecure ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
 
-                            # HTML Raporu üret
+                            # Generate HTML Report
                             ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@${SEC_SERVER} \
                             "TRIVY_USERNAME=${NEXUS_USER} TRIVY_PASSWORD=${NEXUS_PASS} \
                             trivy image --image-src remote --format template --template '@/usr/local/share/trivy/templates/html.tpl' \
                             -o /home/sonarqube/trivy-report.html --insecure ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
 
-                            # Raporu Jenkins'e çek
+                            # Pull report back to Jenkins
                             scp -i /var/jenkins_home/.ssh/id_ed25519 sonarqube@${SEC_SERVER}:/home/sonarqube/trivy-report.html .
                         """
                         archiveArtifacts artifacts: 'trivy-report.html', fingerprint: true
@@ -66,45 +65,46 @@ pipeline {
             }
         }
 
-stage('Deploy to K3s') {
-    steps {
-        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
-            sh """
-                # 1. Önce imajı güncelle (Senin mevcut başarılı komutun)
-                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
+        stage('Deploy to K3s') {
+            steps {
+                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh """
+                        # 1. Update image
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                        set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
 
-                # 2. Üzerine kaynak ve sağlık kontrollerini yamala (Geliştirme)
-                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                patch deployment eshop-web-app --patch '{
-                    "spec": {
-                        "template": {
+                        # 2. Patch resources and probes
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                        patch deployment eshop-web-app --patch '{
                             "spec": {
-                                "containers": [{
-                                    "name": "eshop-web",
-                                    "resources": {
-                                        "limits": {"cpu": "500m", "memory": "512Mi"},
-                                        "requests": {"cpu": "250m", "memory": "256Mi"}
-                                    },
-                                    "readinessProbe": {
-                                        "httpGet": {"path": "/", "port": 80},
-                                        "initialDelaySeconds": 15,
-                                        "periodSeconds": 10
+                                "template": {
+                                    "spec": {
+                                        "containers": [{
+                                            "name": "eshop-web",
+                                            "resources": {
+                                                "limits": {"cpu": "500m", "memory": "512Mi"},
+                                                "requests": {"cpu": "250m", "memory": "256Mi"}
+                                            },
+                                            "readinessProbe": {
+                                                "httpGet": {"path": "/", "port": 80},
+                                                "initialDelaySeconds": 15,
+                                                "periodSeconds": 10
+                                            }
+                                        }]
                                     }
-                                }]
+                                }
                             }
-                        }
-                    }
-                }'
-            """
+                        }'
+                    """
+                }
+            }
         }
-    }
-}
+    } 
 
-    // Her build sonrası disk temizliği (Başarılı olsa da olmasa da çalışır)
     post {
         always {
+            // Clean workspace after build
             cleanWs()
         }
     }
-}
+} 
