@@ -85,6 +85,12 @@ spec:
           value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
         - name: ConnectionStrings__IdentityConnection
           value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
+        - name: CATALOG_BASE_URL
+          value: "/"
+        - name: CatalogBaseUrl
+          value: "/"
+        - name: PATH_BASE
+          value: "/"         
 ---
 # ---------------- 5. ESHOP WEB APP SERVICE ----------------
 apiVersion: v1
