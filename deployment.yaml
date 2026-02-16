@@ -77,7 +77,7 @@ spec:
         # Pipeline build numarasına göre burayı otomatik güncelliyor olmalı
         image: nexus-server.local:8083/eshop-web:22 
         ports:
-        - containerPort: 8080
+        - containerPort: 80
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
@@ -92,11 +92,11 @@ kind: Service
 metadata:
   name: web-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: web
   ports:
     - protocol: TCP
       port: 80
       targetPort: 80
-      nodePort: 30080
+      
