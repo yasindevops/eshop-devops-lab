@@ -19,7 +19,6 @@ pipeline {
                                 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
                                 export PATH="\$PATH:/var/jenkins_home/.dotnet/tools"
                                 
-                                # Hata veren dosyayı /d:sonar.exclusions ile hariç tutuyoruz
                                 dotnet-sonarscanner begin /k:"eshop-web-app" \
                                     /d:sonar.host.url="http://${SEC_SERVER}:9000" \
                                     /d:sonar.token=${SONAR_TOKEN} \
@@ -47,9 +46,9 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'nexus-auth', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                         sh """
                             # Tabloyu konsola bas
-                            ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@''' + SEC_SERVER + ''' \
-                    "TRIVY_USERNAME=''' + NEXUS_USER + ''' TRIVY_PASSWORD=''' + NEXUS_PASS + ''' \
-                    trivy image --image-src remote --severity HIGH,CRITICAL --insecure ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
+                            ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@${SEC_SERVER} \
+                            "TRIVY_USERNAME=${NEXUS_USER} TRIVY_PASSWORD=${NEXUS_PASS} \
+                            trivy image --image-src remote --severity HIGH,CRITICAL --insecure ${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}"
 
                             # HTML Raporu üret
                             ssh -i /var/jenkins_home/.ssh/id_ed25519 -o StrictHostKeyChecking=no sonarqube@${SEC_SERVER} \
@@ -66,32 +65,31 @@ pipeline {
             }
         }
 
-stage('Deploy to K3s') {
-    steps {
-        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
-            sh """
-                # 1. Yeni imajı set et
-                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
+        stage('Deploy to K3s') {
+            steps {
+                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh """
+                        # 1. Yeni imajı set et
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                        set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
 
-                # 2. Portu 80'e sabitle (Kalıcı çözüm için eklendi)
-                # Bu komut uygulamayı içeriden 80 portuna zorlar ve çakışmayı önler
-                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                set env deployment/eshop-web-app ASPNETCORE_URLS=http://+:80
+                        # 2. Portu 80'e sabitle (Kalıcı çözüm)
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                        set env deployment/eshop-web-app ASPNETCORE_URLS=http://+:80
 
-                # 3. Deployment'ın başarıyla tamamlanmasını bekle (Zaman aşımı 120sn)
-                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                rollout status deployment/eshop-web-app --timeout=120s
+                        # 3. Deployment'ın başarıyla tamamlanmasını bekle (Zaman aşımı 120sn)
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                        rollout status deployment/eshop-web-app --timeout=120s
 
-                # 4. Gateway API statüsünü kontrol et (Ekrana bilgi basar)
-                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                get gateway eshop-gateway
-            """
+                        # 4. Gateway API statüsünü kontrol et
+                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                        get gateway eshop-gateway
+                    """
+                }
+            }
         }
-    }
-}
+    } // <-- Stages bloğu burada kapanmalıydı, ekledim.
 
-    // Her build sonrası disk temizliği (Başarılı olsa da olmasa da çalışır)
     post {
         always {
             cleanWs()
