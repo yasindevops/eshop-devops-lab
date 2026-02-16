@@ -66,31 +66,29 @@ pipeline {
         }
 
  stage('Deploy to K3s') {
-            steps {
-                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh """
-                        # 1. Yeni imajı set et (Build numarasını zorla güncelle)
-                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                        set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
+    steps {
+        withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBECONFIG')]) {
+            sh """
+                # 1. Yeni imajı set et
+                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                set image deployment/eshop-web-app eshop-web=${REGISTRY}/${IMG_NAME}:${BUILD_NUMBER}
 
-                        # 2. Portu 80'e sabitle (ASPNETCORE_URLS ayarı)
-                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                        set env deployment/eshop-web-app ASPNETCORE_URLS=http://+:80
+                # 2. Portu 80'e sabitle
+                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                set env deployment/eshop-web-app ASPNETCORE_URLS=http://+:80
 
-                        # 3. ZORLAYICI ADIM: Podları yeni imajla yeniden başlatmaya zorla
-                        # Bu komut, API server donup imajı tam set edemese bile süreci tetikler.
-                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                        rollout restart deployment/eshop-web-app
+                # 3. KRİTİK EKLEME: Catalog Base URL hatasını düzelt (Başına / koyarak)
+                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                set env deployment/eshop-web-app CATALOG_BASE_URL=/catalog
 
-                        # 4. Deployment'ın başarıyla tamamlanmasını bekle (Zaman aşımı 120sn)
-                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                        rollout status deployment/eshop-web-app --timeout=120s
+                # 4. Deployment'ı yeniden başlat ve durumu bekle
+                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                rollout restart deployment/eshop-web-app
 
-                        # 5. Gateway API statüsünü kontrol et
-                        kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
-                        get gateway eshop-gateway
-                    """
-                }
+                kubectl --kubeconfig=${KUBECONFIG} --server=https://${K8S_MASTER}:6443 --insecure-skip-tls-verify \
+                rollout status deployment/eshop-web-app --timeout=120s
+            """
+             }
             }
         }
     } 
