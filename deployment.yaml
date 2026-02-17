@@ -1,5 +1,4 @@
 # ---------------- 1. SQL DATA STORAGE (PVC) ----------------
-# SQL verilerinin konteyner silinse bile kalmasını sağlar.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -63,7 +62,7 @@ kind: Deployment
 metadata:
   name: eshop-web-app
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: web
@@ -74,23 +73,26 @@ spec:
     spec:
       containers:
       - name: eshop-web
-        # Pipeline build numarasına göre burayı otomatik güncelliyor olmalı
-        image: nexus-server.local:8083/eshop-web:22 
+        image: nexus-server.local:8083/eshop-web:59 # Doğru çalışan tag
         ports:
         - containerPort: 80
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80" # Uygulamayı 80'e sabitledik
+        # Statik dosyaların bozulmaması için path ayarları:
+        - name: CATALOG_BASE_URL
+          value: ""
+        - name: CatalogBaseUrl
+          value: ""
+        - name: PATH_BASE
+          value: "/"
+        # SQL Bağlantıları:
         - name: ConnectionStrings__CatalogConnection
           value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
         - name: ConnectionStrings__IdentityConnection
           value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.Identity;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
-        - name: CATALOG_BASE_URL
-          value: "/"
-        - name: CatalogBaseUrl
-          value: "/"
-        - name: PATH_BASE
-          value: "/"         
 ---
 # ---------------- 5. ESHOP WEB APP SERVICE ----------------
 apiVersion: v1
@@ -104,5 +106,4 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
-      
+      targetPort: 80 
