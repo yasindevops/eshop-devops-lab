@@ -73,22 +73,14 @@ spec:
     spec:
       containers:
       - name: eshop-web
-        image: nexus-server.local:8083/eshop-web:59 # Doğru çalışan tag
+        image: nexus-server.local:8083/eshop-web:59
         ports:
         - containerPort: 80
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
         - name: ASPNETCORE_URLS
-          value: "http://+:80" # Uygulamayı 80'e sabitledik
-        # Statik dosyaların bozulmaması için path ayarları:
-        - name: CATALOG_BASE_URL
-          value: ""
-        - name: CatalogBaseUrl
-          value: ""
-        - name: PATH_BASE
-          value: "/"
-        # SQL Bağlantıları:
+          value: "http://+:80"
         - name: ConnectionStrings__CatalogConnection
           value: "Server=sql-server-service;Database=Microsoft.eShopOnWeb.CatalogDb;User Id=sa;Password=GeciciSifre123!;Encrypt=False;TrustServerCertificate=True;"
         - name: ConnectionStrings__IdentityConnection
@@ -106,4 +98,4 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80 
+      targetPort: 80
